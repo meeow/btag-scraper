@@ -35,6 +35,17 @@ _RANK = dict()
 
 #[BEGIN CODE]===================================================================
 
+def load_file(src, dst):
+    srcfile = open(src).readlines()
+    for line in srcfile:
+        if type(dst) == dict:
+            line = line.split(',')
+            dst[line[0]] = line[1]
+        elif type(dst) == set:
+            dst.add(line)
+        else: 
+            return "dst type not supported. Expect dict or set."
+
 def init_dicts():
     for url in SITES:
         _MATCHED_KEYWORDS[url] = list() 
@@ -42,7 +53,7 @@ def init_dicts():
     for rank in ['bronze','silver','gold','plat','diamond','master','grandmaster']:
         _RANK[rank] = 0
 
-def search_site_for_keyword(url, max_page=5):
+def search_site_for_keyword(url, max_page=2):
     page = 1
     while max_page - page >= 0:
         print 'Searching:', url
@@ -98,14 +109,15 @@ def add_to_ranks(sr):
         _RANK['bronze'] += 1
 
 def dict2csv(d, file):
-    dict2list = [str(k,d[k]) for k in d]
+    dict2list = [(str(k) + ','+ str(d[k]) + '\n') for k in d]
     file.writelines(dict2list)
 
 def set2csv(s, file):
-    file.writelines(list(s))
+    file.writelines([l + '\n' for l in list(s)])
 
 def main():
     init_dicts()
+    #load_file('btags.csv')
     
     for site in SITES:
         search_site_for_keyword(site)
