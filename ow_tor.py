@@ -8,8 +8,9 @@ import time
 import random
 from stem import Signal
 from stem.control import Controller
+import tor_requests as tr
 
-#VERSION: ALPHA 
+_python_version_ = 2.7
 
 #[USER CONFIGUREABLE GLOBAL VARIABLES]==========================================
 
@@ -21,11 +22,6 @@ KEYWORDS = [
 'https://playoverwatch.com/en-us/career/pc/us/'
 ]
 
-
-IP_CHANGE_ROUNDS = 9
-
-INFO = True
-
 #[NOT OF INTEREST TO USER]======================================================
 
 _MATCHED_KEYWORDS = dict()
@@ -33,15 +29,9 @@ _CURRENT_ROUND = 0
 _CACHE = set()
 _SR = dict()
 _RANK = dict()
-_TEMPSOCKET = socket.socket
-_CONTROLLER = Controller.from_port(port=9051)
-print('Controller assigned.')
+
 
 #[BEGIN CODE]===================================================================
-
-def info(s):
-    if INFO:
-        print('INFO>', s)
 
 def init_dicts():
     for url in SITES:
@@ -50,44 +40,38 @@ def init_dicts():
     for rank in ['bronze','silver','gold','plat','diamond','master','grandmaster']:
         _RANK[rank] = 0
 
-def init_tor():
-    socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, "127.0.0.1", 9050, True)
-    socket.socket = socks.socksocket
-    info('Tor connected.')
-    print_ip()
-
-def print_ip():
-    print('IP> ', requests.get("http://icanhazip.com").text[:-1])
-
 def search_site_for_keyword(url, max_page=50):
     page = 1
-    while 1:
-        if page % 5 == 1: update_ip()
-        info('Searching ' + url[:60] + '...')
-        info('Page: ' + str(page))
+    while max_page - page >= 0:
+        print 'Searching:', url
+        print 'Page:', page
+
         newurl = url
         if page > 1:
             newurl = url + '?page=' + str(page)
-        rawhtml = requests.get(newurl).text
-        if "Page Not Found" in requests.get(newurl).text or page >= max_page:
+
+        rawhtml = tr.get_html([newurl], 1, keywords=KEYWORDS)[0]
+        if not rawhtml or page >= max_page:
+            print KEYWORDS
+
+            # Keyword not found or page limit exceeded
             return
 
+        page += 1
         #Create list of ids
         for line in rawhtml.split('\n'):
             if KEYWORDS[0] in line:
-                #print (line)
                 matchObj = re.search( r'([^/]+)-(\d{4,5})', line)
                 btag = matchObj.group(1)+'-'+matchObj.group(2)
 
                 if btag not in _CACHE:
-                    print(btag)
-                _CACHE.add(btag)
+                    print btag, 'added.', len(_CACHE)+1, 'tags collected.'
+                    _CACHE.add(btag)
 
-        page += 1
-           
 def get_stats(btag):
     url = 'https://playoverwatch.com/en-us/career/pc/' + btag
-    rawhtml = requests.get(url).text
+    rawhtml = tr.get_html([url])
+    assert(rawhtml)
     matchObj = re.search(r'u-align-center h5">(\d{3,4})<',rawhtml)
     if not matchObj: 
         return
@@ -111,33 +95,15 @@ def add_to_ranks(sr):
     else:
         _RANK['bronze'] += 1
 
-def update_ip():
-    _CONTROLLER.authenticate()
-    _CONTROLLER.signal(Signal.NEWNYM)
-    print_ip()
-
-
 def main():
-    init_tor()
     init_dicts()
-    #updated_site = None
-    #sleeptime = random.randrange(10, 30)
     
     for site in SITES:
-        try:
-            updated_site = search_site_for_keyword(site)
-        except requests.exceptions.ConnectionError:
-            info('Max requests, updating IP')
-            update_ip()
-        if updated_site:
-            pass
-            #email(updated_site)
-
-    #update_ip()
+        search_site_for_keyword(site)
+        
     req = 0
     for btag in _CACHE:
-        if req % 7 == 0:
-            update_ip()
+        if req % 5 == 0:
             print "Processed", req, "of", len(_CACHE) 
         print "Finding SR of", btag, '[' + str(req) + ']'
         get_stats(btag)
