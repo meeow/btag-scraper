@@ -22,14 +22,16 @@ KEYWORDS = [
 'https://playoverwatch.com/en-us/career/pc/us/'
 ]
 
-#[NOT OF INTEREST TO USER]======================================================
+OUT_BTAGS = open('btags.csv', 'w')
+OUT_SR = open('sr.csv', 'w')
+
+#[GLOBAL DICTS]=================================================================
 
 _MATCHED_KEYWORDS = dict()
 _CURRENT_ROUND = 0
-_CACHE = set()
+_BTAGS = set()
 _SR = dict()
 _RANK = dict()
-
 
 #[BEGIN CODE]===================================================================
 
@@ -40,7 +42,7 @@ def init_dicts():
     for rank in ['bronze','silver','gold','plat','diamond','master','grandmaster']:
         _RANK[rank] = 0
 
-def search_site_for_keyword(url, max_page=50):
+def search_site_for_keyword(url, max_page=5):
     page = 1
     while max_page - page >= 0:
         print 'Searching:', url
@@ -64,13 +66,13 @@ def search_site_for_keyword(url, max_page=50):
                 matchObj = re.search( r'([^/]+)-(\d{4,5})', line)
                 btag = matchObj.group(1)+'-'+matchObj.group(2)
 
-                if btag not in _CACHE:
-                    print btag, 'added.', len(_CACHE)+1, 'tags collected.'
-                    _CACHE.add(btag)
+                if btag not in _BTAGS:
+                    print btag, 'added.', len(_BTAGS)+1, 'tags collected.'
+                    _BTAGS.add(btag)
 
 def get_stats(btag):
     url = 'https://playoverwatch.com/en-us/career/pc/' + btag
-    rawhtml = tr.get_html([url])
+    rawhtml = tr.get_html([url])[0]
     assert(rawhtml)
     matchObj = re.search(r'u-align-center h5">(\d{3,4})<',rawhtml)
     if not matchObj: 
@@ -95,6 +97,13 @@ def add_to_ranks(sr):
     else:
         _RANK['bronze'] += 1
 
+def dict2csv(d, file):
+    dict2list = [str(k,d[k]) for k in d]
+    file.writelines(dict2list)
+
+def set2csv(s, file):
+    file.writelines(list(s))
+
 def main():
     init_dicts()
     
@@ -102,15 +111,18 @@ def main():
         search_site_for_keyword(site)
         
     req = 0
-    for btag in _CACHE:
+    for btag in _BTAGS:
         if req % 5 == 0:
-            print "Processed", req, "of", len(_CACHE) 
+            print "Processed", req, "of", len(_BTAGS) 
         print "Finding SR of", btag, '[' + str(req) + ']'
         get_stats(btag)
         req += 1
 
     print _SR 
     print _RANK
+
+    set2csv(_BTAGS, OUT_BTAGS)
+    dict2csv(_SR, OUT_SR)
 
 main()
 

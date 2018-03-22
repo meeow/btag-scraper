@@ -24,7 +24,7 @@ _tor_connected = False
 #===============================================================================
 
 def print_ip():
-    print 'IP> ', requests.get("http://icanhazip.com").text[:-1]
+    print 'IP> ', tor_get("http://icanhazip.com").text[:-1]
 
 def _update_ip():
     _CONTROLLER.authenticate()
@@ -32,8 +32,16 @@ def _update_ip():
     print_ip()
 
 def _init_tor():
-    socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, "127.0.0.1", 9050, True)
-    socket.socket = socks.socksocket
+    global _tor_connected
+    if _tor_connected: return
+
+    try:
+        socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, "127.0.0.1", 9050, True)
+        socket.socket = socks.socksocket
+    except socks.SOCKS5Error:
+        print 'Fatal socks error.'
+        return
+        
     _tor_connected = True
     print_ip()
 
@@ -51,7 +59,7 @@ def tor_get(url):
         try:
             request = requests.get(url)
         except requests.exceptions.ConnectionError:
-            info('Request error, updating IP and trying again.')
+            print 'Request error, updating IP and trying again.'
             update_ip()
 
     return request
